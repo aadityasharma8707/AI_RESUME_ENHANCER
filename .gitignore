@@ -1,0 +1,53 @@
+# Secrets and environment files
+.env
+.env.*
+!.env.example
+
+# Python environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Frontend dependencies
+node_modules/
+frontend/node_modules/
+
+# Frontend build output
+dist/
+frontend/dist/
+build/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE/local settings
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Uploaded resume files and user data
+uploads/
+uploaded_resumes/
+temp_uploads/
+*.pdf
