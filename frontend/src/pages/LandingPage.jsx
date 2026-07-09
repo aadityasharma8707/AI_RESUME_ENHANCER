@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { UploadCloud, FileText, ChevronRight, Briefcase } from 'lucide-react';
+import { UploadCloud, FileText, ChevronRight, Briefcase, Trash2, ChevronDown } from 'lucide-react';
 import { apiService } from '../services/api';
 import LoadingState from '../components/LoadingState';
 import TopBar from '../components/TopBar';
@@ -13,6 +13,9 @@ export default function LandingPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState(null);
+  const [resumes, setResumes] = useState([]);
+  const [selectedResumeId, setSelectedResumeId] = useState('new');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,10 +28,41 @@ export default function LandingPage() {
       setJobTitle('');
       setTargetSkills('');
       setError(null);
+      setSelectedResumeId('new');
       // Clear location state so refresh doesn't trigger it again unnecessarily
       navigate('/', { replace: true, state: {} });
     }
   }, [location.state, navigate]);
+
+  useEffect(() => {
+    const loadResumes = async () => {
+      try {
+        const data = await apiService.getCentralResumes();
+        if (Array.isArray(data)) {
+          const valid = data.filter(r => r && r.id);
+          setResumes(valid);
+        }
+      } catch (err) {
+        console.error("Failed to load resumes", err);
+      }
+    };
+    loadResumes();
+  }, []);
+
+  const handleDeleteResume = async (id, e) => {
+    e.stopPropagation();
+    try {
+      await apiService.deleteCentralResume(id);
+      setResumes(prev => prev.filter(r => r.id !== id));
+      if (selectedResumeId === id) {
+        setSelectedResumeId('new');
+      }
+      addNotification('Resume Deleted', 'Successfully removed from library', 'info');
+    } catch (err) {
+      console.error('Failed to delete resume', err);
+      addNotification('Delete Failed', 'Could not delete resume', 'error');
+    }
+  };
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault();
@@ -68,14 +102,28 @@ export default function LandingPage() {
   };
 
   const handleAnalyze = async () => {
-    if (!file || !jobTitle.trim()) return;
+    if ((selectedResumeId === 'new' && !file) || !jobTitle.trim()) return;
 
     setIsAnalyzing(true);
     setError(null);
 
     try {
+      let finalResumeId = selectedResumeId;
+      let finalFileName = 'resume';
+      
+      if (selectedResumeId === 'new' && file) {
+        const uploadResult = await apiService.uploadCentralResume(file);
+        finalResumeId = uploadResult.id;
+        finalFileName = file.name;
+      } else {
+        const selectedResume = resumes.find(r => r.id === selectedResumeId);
+        if (selectedResume) {
+          finalFileName = selectedResume.display_name;
+        }
+      }
+
       const formData = new FormData();
-      formData.append('resume', file);
+      formData.append('resume_id', finalResumeId);
       formData.append('job_title', jobTitle);
       formData.append('target_skills', targetSkills);
       
@@ -89,7 +137,7 @@ export default function LandingPage() {
       }
 
       const result = await response.json();
-      addNotification('Analysis Completed', `Successfully analyzed ${file.name}`, 'success');
+      addNotification('Analysis Completed', `Successfully analyzed ${finalFileName}`, 'success');
       navigate('/resume-check/overview', { state: { result } });
     } catch (err) {
       const errorMsg = err.message || 'An error occurred during analysis.';
@@ -100,7 +148,7 @@ export default function LandingPage() {
     }
   };
 
-  const isFormValid = file && jobTitle.trim().length > 0;
+  const isFormValid = (selectedResumeId !== 'new' || file) && jobTitle.trim().length > 0;
 
   if (isAnalyzing) {
     return <LoadingState />;
@@ -133,8 +181,62 @@ export default function LandingPage() {
               {/* Resume Upload Column */}
               <div className="space-y-4">
                 <label className="block text-sm font-semibold text-text-main">
-                  1. Upload Resume (PDF)
+                  1. Select or Upload Resume
                 </label>
+                
+                {resumes.length > 0 && (
+                  <div className="relative mb-4">
+                    <div 
+                      className="w-full p-3 border border-border-input rounded-xl bg-surface-bg flex justify-between items-center cursor-pointer hover:border-brand-300 transition-all text-text-main text-sm"
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    >
+                      <span className="truncate">
+                        {selectedResumeId === 'new' 
+                          ? '+ Upload a new resume' 
+                          : resumes.find(r => r.id === selectedResumeId)?.display_name || 'Select resume'}
+                      </span>
+                      <ChevronDown size={16} className="text-text-muted flex-shrink-0 ml-2" />
+                    </div>
+                    
+                    {isDropdownOpen && (
+                      <div className="absolute z-10 w-full mt-1 bg-surface-bg border border-border-input rounded-xl shadow-lg overflow-hidden py-1">
+                        <div 
+                          className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer text-sm font-medium text-brand-600 transition-colors"
+                          onClick={() => {
+                            setSelectedResumeId('new');
+                            setIsDropdownOpen(false);
+                          }}
+                        >
+                          + Upload a new resume
+                        </div>
+                        <div className="h-px bg-border-subtle my-1"></div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {resumes.map(r => (
+                            <div 
+                              key={r.id}
+                              className={`px-4 py-2 flex justify-between items-center hover:bg-slate-50 cursor-pointer transition-colors ${selectedResumeId === r.id ? 'bg-brand-50' : ''}`}
+                              onClick={() => {
+                                setSelectedResumeId(r.id);
+                                setIsDropdownOpen(false);
+                              }}
+                            >
+                              <span className="text-sm text-text-main truncate pr-4">{r.display_name}</span>
+                              <button
+                                onClick={(e) => handleDeleteResume(r.id, e)}
+                                className="p-1.5 text-text-muted hover:text-error-600 hover:bg-error-50 rounded-md transition-colors flex-shrink-0"
+                                title="Delete resume"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {selectedResumeId === 'new' && (
                 
                 <div 
                   onDragOver={handleDragOver}
@@ -171,6 +273,7 @@ export default function LandingPage() {
                     </div>
                   )}
                 </div>
+                )}
               </div>
 
               {/* Job Description Column */}

@@ -4,8 +4,8 @@ export default function ProductSectionNav() {
   const location = useLocation();
   const sections = [
     { name: 'Resume Check', path: '/resume-check/overview', active: true },
-    { name: 'Job Match', path: '#', active: false },
-    { name: 'Skill Verification', path: '#', active: false },
+    { name: 'Resume Builder', path: '/resume-builder', active: true },
+    { name: 'Skill Verification', path: '/skill-verification/my-skills', active: true },
     { name: 'Learning Roadmap', path: '#', active: false },
     { name: 'Interview Prep', path: '#', active: false },
   ];
@@ -22,7 +22,11 @@ export default function ProductSectionNav() {
                   state={location.state}
                   className={({ isActive }) => `
                     pb-3 text-sm font-semibold transition-colors border-b-2 
-                    ${isActive || window.location.pathname.startsWith('/resume-check') 
+                    ${(isActive || 
+                      (section.path === '/resume-check/overview' && window.location.pathname.startsWith('/resume-check')) || 
+                      (section.path === '/resume-builder' && window.location.pathname.startsWith('/resume-builder')) ||
+                      (section.path === '/skill-verification/my-skills' && window.location.pathname.startsWith('/skill-verification'))
+                      )
                       ? 'border-brand-600 text-brand-600' 
                       : 'border-transparent text-text-muted hover:text-text-main'}
                   `}

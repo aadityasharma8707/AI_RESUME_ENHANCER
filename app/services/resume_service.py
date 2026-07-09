@@ -32,3 +32,17 @@ def process_resume(file_bytes: bytes, filename: str):
     chunks = splitter.split_documents([document])
 
     return resume_text, chunks
+
+def split_text_into_chunks(text: str, chunk_size: int = 1000, chunk_overlap: int = 200, filename: str = "Unknown"):
+    document = Document(
+        page_content=text,
+        metadata={
+            "source": filename,
+            "type": "resume"
+        }
+    )
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap
+    )
+    return splitter.split_documents([document])
